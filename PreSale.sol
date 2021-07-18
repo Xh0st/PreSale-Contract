@@ -1,3 +1,11 @@
+/**
+ *Submitted for verification at BscScan.com on 2021-07-17
+*/
+
+/**
+ *Submitted for verification at BscScan.com on 2021-07-16
+*/
+
 pragma solidity ^0.8.4;
 // SPDX-License-Identifier: Unlicensed
 
@@ -140,12 +148,39 @@ interface IERC20 {
 
 }
 
+contract Admined is Ownable {
 
+    // Mapping of administrators
+    mapping (address => bool) public admins;
 
-contract Presale is ReentrancyGuard, Context, Ownable {
+    // Add and delete adminstrator events
+    event AdminAdded(address _address);
+    event AdminRemoved(address _address);
+
+    // Modifier for functions that can only be executed by adminstrator
+    modifier onlyAdmin() {
+        require(admins[msg.sender] == true);
+        _;
+    }
+
+    // Owner can add a new administrator
+    function addAdmin(address _address) public onlyOwner {
+        admins[_address] = true;
+        emit AdminAdded(_address);
+    }
+
+    // Owner can remove an administrator
+    function removeAdmin(address _address) public onlyOwner {
+        delete admins[_address];
+        emit AdminRemoved(_address);
+    }
+}
+
+contract Presale is ReentrancyGuard, Context, Ownable, Admined {
     using SafeMath for uint256;
     
     mapping (address => uint256) public _contributions;
+    mapping(address => bool) public Whitelist;
 
     IERC20 public _token;
     uint256 private _tokenDecimals;
@@ -159,9 +194,12 @@ contract Presale is ReentrancyGuard, Context, Ownable {
     uint public softCap;
     uint public availableTokensICO;
     bool public startRefund = false;
+    bool public seale;
 
     event TokensPurchased(address  purchaser, address  beneficiary, uint256 value, uint256 amount);
     event Refund(address recipient, uint256 amount);
+    event Whitelisted(address addr);
+    event DelWhitelisted(address addr);
     constructor (uint256 rate, address payable wallet, IERC20 token, uint256 tokenDecimals)  {
         require(rate > 0, "Pre-Sale: rate is 0");
         require(wallet != address(0), "Pre-Sale: wallet is the zero address");
@@ -183,6 +221,24 @@ contract Presale is ReentrancyGuard, Context, Ownable {
         }
     }
     
+        // Add to whitelist
+    function addtoWhitelist(address addr) public onlyAdmin {
+        require(!seale);
+        require(addr != address(0));
+        Whitelist[addr] = true;
+        emit Whitelisted(addr);
+    }
+    
+    function removefromWhitelist(address addr) public onlyAdmin {
+        delete Whitelist[addr];
+        emit DelWhitelisted(addr);
+    }
+
+    // After sealing, no more whitelisting is possible
+    function seal() public onlyOwner {
+        require(!seale);
+        seale = true;
+    }
     
     //Start Pre-Sale
     function startICO(uint endDate, uint _minPurchase, uint _maxPurchase, uint _softCap, uint _hardCap) external onlyOwner icoNotActive() {
@@ -222,6 +278,7 @@ contract Presale is ReentrancyGuard, Context, Ownable {
     }
 
     function _preValidatePurchase(address beneficiary, uint256 weiAmount) internal view {
+        require(Whitelist[msg.sender] == false, "Address not in whitelist");
         require(beneficiary != address(0), "Crowdsale: beneficiary is the zero address");
         require(weiAmount != 0, "Crowdsale: weiAmount is 0");
         require(weiAmount >= minPurchase, 'have to send at least: minPurchase');
