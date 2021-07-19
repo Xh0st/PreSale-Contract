@@ -1,3 +1,11 @@
+/**
+ *Submitted for verification at BscScan.com on 2021-07-17
+*/
+
+/**
+ *Submitted for verification at BscScan.com on 2021-07-16
+*/
+
 pragma solidity ^0.8.4;
 // SPDX-License-Identifier: Unlicensed
 
@@ -12,6 +20,7 @@ abstract contract Context {
         return msg.data;
     }
 }
+
 
 contract Ownable is Context {
     address private _owner;
@@ -41,6 +50,7 @@ contract Ownable is Context {
 
 }
 
+
 abstract contract ReentrancyGuard {
    
     uint256 private constant _NOT_ENTERED = 1;
@@ -51,6 +61,7 @@ abstract contract ReentrancyGuard {
     constructor() {
         _status = _NOT_ENTERED;
     }
+
    
     modifier nonReentrant() {
         // On the first call to nonReentrant, _notEntered will be true
@@ -98,6 +109,7 @@ library SafeMath {
         return c;
     }
 
+
     function div(uint256 a, uint256 b) internal pure returns (uint256) {
         return div(a, b, "SafeMath: division by zero");
     }
@@ -131,41 +143,14 @@ interface IERC20 {
     event Transfer(address indexed from, address indexed to, uint256 value);
     event Approval(address indexed owner, address indexed spender, uint256 value);
     
+
 }
 
-contract Admined is Ownable {
-
-    // Mapping of administrators
-    mapping (address => bool) public admins;
-
-    // Add and delete adminstrator events
-    event AdminAdded(address _address);
-    event AdminRemoved(address _address);
-
-    // Modifier for functions that can only be executed by adminstrator
-    modifier onlyAdmin() {
-        require(admins[msg.sender] == true);
-        _;
-    }
-
-    // Owner can add a new administrator
-    function addAdmin(address _address) public onlyOwner {
-        admins[_address] = true;
-        emit AdminAdded(_address);
-    }
-
-    // Owner can remove an administrator
-    function removeAdmin(address _address) public onlyOwner {
-        delete admins[_address];
-        emit AdminRemoved(_address);
-    }
-}
-
-contract Presale is ReentrancyGuard, Context, Ownable, Admined {
+contract JadeitePresale is ReentrancyGuard, Context, Ownable {
     using SafeMath for uint256;
     
     mapping (address => uint256) public _contributions;
-    mapping(address => bool) public Whitelist;
+    mapping(address => uint256) internal whitelist;
 
     IERC20 public _token;
     uint256 private _tokenDecimals;
@@ -183,8 +168,7 @@ contract Presale is ReentrancyGuard, Context, Ownable, Admined {
 
     event TokensPurchased(address  purchaser, address  beneficiary, uint256 value, uint256 amount);
     event Refund(address recipient, uint256 amount);
-    event Whitelisted(address addr);
-    event DelWhitelisted(address addr);
+    event Whitelisted(address indexed addr, uint256 max);
     constructor (uint256 rate, address payable wallet, IERC20 token, uint256 tokenDecimals)  {
         require(rate > 0, "Pre-Sale: rate is 0");
         require(wallet != address(0), "Pre-Sale: wallet is the zero address");
@@ -196,6 +180,7 @@ contract Presale is ReentrancyGuard, Context, Ownable, Admined {
         _tokenDecimals = 18 - tokenDecimals;
     }
 
+
     receive () external payable {
         if(endICO > 0 && block.timestamp < endICO){
             buyTokens(_msgSender());
@@ -205,17 +190,31 @@ contract Presale is ReentrancyGuard, Context, Ownable, Admined {
         }
     }
     
-        // Add to whitelist
-    function addtoWhitelist(address addr) public onlyAdmin {
+        // Add address to whitelist
+    function addtoWhitelist(address addr, uint256 max) public onlyOwner {
         require(!seale);
         require(addr != address(0));
-        Whitelist[addr] = true;
-        emit Whitelisted(addr);
+        whitelist[addr] = max;
+        emit Whitelisted(addr, max);
     }
-       // Remove from whitelist
-    function removefromWhitelist(address addr) public onlyAdmin {
-        delete Whitelist[addr];
-        emit DelWhitelisted(addr);
+    
+        // Add bulk to whitelist
+    function bulkAddtoWhitelist(address[] memory addrs, uint256[] memory max) public onlyOwner {
+        require(!seale);
+        require(addrs.length != 0);
+        require(addrs.length == max.length);
+        for (uint256 i = 0; i < addrs.length; i++) {
+            require(addrs[i] != address(0));
+            whitelist[addrs[i]] = max[i];
+            emit Whitelisted(addrs[i], max[i]);
+        }
+    }
+        // Delete address from whitelist       
+    function removefromWhitelist(address addr, uint max) public onlyOwner {
+        require(!seale);
+        delete whitelist[addr];
+        delete max;
+        emit Whitelisted(addr, max);
     }
 
     // After sealing, no more whitelisting is possible
@@ -224,10 +223,23 @@ contract Presale is ReentrancyGuard, Context, Ownable, Admined {
         seale = true;
     }
     
+    function checkWhitelist(address _addr) public view returns(uint256){
+        return whitelist[_addr];
+    }
+    
+    function WhitelistedAddress(address _addr) public view returns(bool){
+        if(whitelist[_addr] != 0) {
+            return true;
+        }
+        else{
+            return false;
+        }
+    }    
+    
     //Start Pre-Sale
     function startICO(uint endDate, uint _minPurchase, uint _maxPurchase, uint _softCap, uint _hardCap) external onlyOwner icoNotActive() {
         availableTokensICO = _token.balanceOf(address(this));
-        require(endDate > block.timestamp, 'duration should be > 0');
+        require(endDate > block.timestamp, 'Duration should be > 0');
         require(availableTokensICO > 0 && availableTokensICO <= _token.totalSupply(), 'availableTokens should be > 0 and <= totalSupply');
         require(_minPurchase > 0, '_minPurchase should > 0');
         endICO = endDate; 
@@ -247,7 +259,8 @@ contract Presale is ReentrancyGuard, Context, Ownable, Admined {
             startRefund = true;
         }
     }
-        
+    
+    
     //Pre-Sale 
     function buyTokens(address beneficiary) public nonReentrant icoActive payable {
         uint256 weiAmount = msg.value;
@@ -261,11 +274,12 @@ contract Presale is ReentrancyGuard, Context, Ownable, Admined {
     }
 
     function _preValidatePurchase(address beneficiary, uint256 weiAmount) internal view {
-        require(Whitelist[msg.sender] == true, "Address not in whitelist");
+        require(WhitelistedAddress(msg.sender) == true, "Address not whitelisted");
+        require(checkWhitelist(msg.sender) == weiAmount, "Transaction weiAmount is incorrect");
         require(beneficiary != address(0), "Crowdsale: beneficiary is the zero address");
         require(weiAmount != 0, "Crowdsale: weiAmount is 0");
-        require(weiAmount >= minPurchase, 'have to send at least: minPurchase');
-        require(weiAmount <= maxPurchase, 'have to send max: maxPurchase');
+        require(weiAmount >= minPurchase, 'Have to send at least: minPurchase');
+        require(weiAmount <= maxPurchase, 'Have to send max: maxPurchase');
         require((_weiRaised+weiAmount) < hardCap, 'Hard Cap reached');
         this; 
     }
@@ -274,11 +288,9 @@ contract Presale is ReentrancyGuard, Context, Ownable, Admined {
         _token.transfer(beneficiary, tokenAmount);
     }
 
- 
     function _processPurchase(address beneficiary, uint256 tokenAmount) internal {
         _deliverTokens(beneficiary, tokenAmount);
     }
-
 
     function _getTokenAmount(uint256 weiAmount) internal view returns (uint256) {
         return weiAmount.mul(_rate).div(10**_tokenDecimals);
