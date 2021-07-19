@@ -13,8 +13,6 @@ abstract contract Context {
     }
 }
 
-
-
 contract Ownable is Context {
     address private _owner;
 
@@ -34,7 +32,6 @@ contract Ownable is Context {
         require(_owner == _msgSender(), "Ownable: caller is not the owner");
         _;
     }
-
 
     function transferOwnership(address newOwner) public virtual onlyOwner {
         require(newOwner != address(0), "Ownable: new owner is the zero address");
