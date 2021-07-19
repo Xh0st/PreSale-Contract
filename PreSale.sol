@@ -1,11 +1,3 @@
-/**
- *Submitted for verification at BscScan.com on 2021-07-17
-*/
-
-/**
- *Submitted for verification at BscScan.com on 2021-07-16
-*/
-
 pragma solidity ^0.8.4;
 // SPDX-License-Identifier: Unlicensed
 
@@ -146,7 +138,7 @@ interface IERC20 {
 
 }
 
-contract JadeitePresale is ReentrancyGuard, Context, Ownable {
+contract Presale is ReentrancyGuard, Context, Ownable {
     using SafeMath for uint256;
     
     mapping (address => uint256) public _contributions;
