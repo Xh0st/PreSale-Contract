@@ -212,7 +212,7 @@ contract Presale is ReentrancyGuard, Context, Ownable, Admined {
         Whitelist[addr] = true;
         emit Whitelisted(addr);
     }
-    
+       // Remove from whitelist
     function removefromWhitelist(address addr) public onlyAdmin {
         delete Whitelist[addr];
         emit DelWhitelisted(addr);
@@ -247,8 +247,7 @@ contract Presale is ReentrancyGuard, Context, Ownable, Admined {
             startRefund = true;
         }
     }
-    
-    
+        
     //Pre-Sale 
     function buyTokens(address beneficiary) public nonReentrant icoActive payable {
         uint256 weiAmount = msg.value;
