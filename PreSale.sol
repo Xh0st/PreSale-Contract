@@ -1,11 +1,3 @@
-/**
- *Submitted for verification at BscScan.com on 2021-07-17
-*/
-
-/**
- *Submitted for verification at BscScan.com on 2021-07-16
-*/
-
 pragma solidity ^0.8.4;
 // SPDX-License-Identifier: Unlicensed
 
@@ -52,7 +44,6 @@ contract Ownable is Context {
 
 }
 
-
 abstract contract ReentrancyGuard {
    
     uint256 private constant _NOT_ENTERED = 1;
@@ -63,7 +54,6 @@ abstract contract ReentrancyGuard {
     constructor() {
         _status = _NOT_ENTERED;
     }
-
    
     modifier nonReentrant() {
         // On the first call to nonReentrant, _notEntered will be true
@@ -111,7 +101,6 @@ library SafeMath {
         return c;
     }
 
-
     function div(uint256 a, uint256 b) internal pure returns (uint256) {
         return div(a, b, "SafeMath: division by zero");
     }
@@ -145,7 +134,6 @@ interface IERC20 {
     event Transfer(address indexed from, address indexed to, uint256 value);
     event Approval(address indexed owner, address indexed spender, uint256 value);
     
-
 }
 
 contract Admined is Ownable {
@@ -210,7 +198,6 @@ contract Presale is ReentrancyGuard, Context, Ownable, Admined {
         _token = token;
         _tokenDecimals = 18 - tokenDecimals;
     }
-
 
     receive () external payable {
         if(endICO > 0 && block.timestamp < endICO){
@@ -278,7 +265,7 @@ contract Presale is ReentrancyGuard, Context, Ownable, Admined {
     }
 
     function _preValidatePurchase(address beneficiary, uint256 weiAmount) internal view {
-        require(Whitelist[msg.sender] == false, "Address not in whitelist");
+        require(Whitelist[msg.sender] == true, "Address not in whitelist");
         require(beneficiary != address(0), "Crowdsale: beneficiary is the zero address");
         require(weiAmount != 0, "Crowdsale: weiAmount is 0");
         require(weiAmount >= minPurchase, 'have to send at least: minPurchase');
