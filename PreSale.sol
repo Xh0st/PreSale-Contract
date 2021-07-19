@@ -1,7 +1,6 @@
 pragma solidity ^0.8.4;
 // SPDX-License-Identifier: Unlicensed
 
-
 abstract contract Context {
     function _msgSender() internal view virtual returns (address payable) {
         return payable(msg.sender);
@@ -171,7 +170,6 @@ contract Presale is ReentrancyGuard, Context, Ownable {
         _token = token;
         _tokenDecimals = 18 - tokenDecimals;
     }
-
 
     receive () external payable {
         if(endICO > 0 && block.timestamp < endICO){
