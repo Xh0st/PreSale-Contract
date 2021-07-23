@@ -146,6 +146,7 @@ contract Presale is ReentrancyGuard, Context, Ownable {
     mapping (address => uint256) internal _AmountContribution;
     mapping (address => uint256) internal _TokensPurchased;
     mapping (address => bool) public Claimed;
+    mapping (address => bool) public enteredPresale;
 
     IERC20 public _token;
     address payable public _wallet;
@@ -267,11 +268,13 @@ contract Presale is ReentrancyGuard, Context, Ownable {
         _contributions[beneficiary] = _contributions[beneficiary].add(weiAmount);
         _AmountContribution[beneficiary] = weiAmount;
         _TokensPurchased[beneficiary] = tokens;
+        enteredPresale[beneficiary] = true;
         emit AmountContribution(beneficiary, weiAmount);
         emit TokensPurchased(beneficiary, tokens);
     }
 
     function _preValidatePurchase(address beneficiary, uint256 weiAmount) internal view {
+        require(enteredPresale[beneficiary] == false, 'Already entered in presale!');
         require(WhitelistedAddress(beneficiary) == true, "Address not whitelisted");
         require(checkWhitelist(beneficiary) == weiAmount, "Transaction weiAmount is incorrect");
         require(beneficiary != address(0), "Crowdsale: beneficiary is the zero address");
