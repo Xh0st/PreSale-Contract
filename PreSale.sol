@@ -1,6 +1,7 @@
 pragma solidity ^0.8.4;
 // SPDX-License-Identifier: Unlicensed
 
+
 abstract contract Context {
     function _msgSender() internal view virtual returns (address payable) {
         return payable(msg.sender);
@@ -141,10 +142,12 @@ contract Presale is ReentrancyGuard, Context, Ownable {
     using SafeMath for uint256;
     
     mapping (address => uint256) public _contributions;
-    mapping(address => uint256) internal whitelist;
+    mapping (address => uint256) internal whitelist;
+    mapping (address => uint256) internal _AmountContribution;
+    mapping (address => uint256) internal _TokensPurchased;
+    mapping (address => bool) public Claimed;
 
     IERC20 public _token;
-    uint256 private _tokenDecimals;
     address payable public _wallet;
     uint256 public _rate;
     uint256 public _weiRaised;
@@ -157,10 +160,12 @@ contract Presale is ReentrancyGuard, Context, Ownable {
     bool public startRefund = false;
     bool public seale;
 
-    event TokensPurchased(address  purchaser, address  beneficiary, uint256 value, uint256 amount);
+    event TokensPurchased(address indexed beneficiary, uint256 amount);
+    event AmountContribution(address indexed beneficiary, uint256 value);
     event Refund(address recipient, uint256 amount);
+    event Claim(address recipient, uint256 amount);
     event Whitelisted(address indexed addr, uint256 max);
-    constructor (uint256 rate, address payable wallet, IERC20 token, uint256 tokenDecimals)  {
+    constructor (uint256 rate, address payable wallet, IERC20 token)  {
         require(rate > 0, "Pre-Sale: rate is 0");
         require(wallet != address(0), "Pre-Sale: wallet is the zero address");
         require(address(token) != address(0), "Pre-Sale: token is the zero address");
@@ -168,12 +173,12 @@ contract Presale is ReentrancyGuard, Context, Ownable {
         _rate = rate;
         _wallet = wallet;
         _token = token;
-        _tokenDecimals = 18 - tokenDecimals;
     }
+
 
     receive () external payable {
         if(endICO > 0 && block.timestamp < endICO){
-            buyTokens(_msgSender());
+            buyTokens();
         }
         else{
             revert('Pre-Sale is closed');
@@ -252,20 +257,23 @@ contract Presale is ReentrancyGuard, Context, Ownable {
     
     
     //Pre-Sale 
-    function buyTokens(address beneficiary) public nonReentrant icoActive payable {
+    function buyTokens() public nonReentrant icoActive payable {
         uint256 weiAmount = msg.value;
+        address beneficiary = msg.sender;
         _preValidatePurchase(beneficiary, weiAmount);
         uint256 tokens = _getTokenAmount(weiAmount);
         _weiRaised = _weiRaised.add(weiAmount);
         availableTokensICO = availableTokensICO - tokens;
-        _processPurchase(beneficiary, tokens);
         _contributions[beneficiary] = _contributions[beneficiary].add(weiAmount);
-        emit TokensPurchased(_msgSender(), beneficiary, weiAmount, tokens);
+        _AmountContribution[beneficiary] = weiAmount;
+        _TokensPurchased[beneficiary] = tokens;
+        emit AmountContribution(beneficiary, weiAmount);
+        emit TokensPurchased(beneficiary, tokens);
     }
 
     function _preValidatePurchase(address beneficiary, uint256 weiAmount) internal view {
-        require(WhitelistedAddress(msg.sender) == true, "Address not whitelisted");
-        require(checkWhitelist(msg.sender) == weiAmount, "Transaction weiAmount is incorrect");
+        require(WhitelistedAddress(beneficiary) == true, "Address not whitelisted");
+        require(checkWhitelist(beneficiary) == weiAmount, "Transaction weiAmount is incorrect");
         require(beneficiary != address(0), "Crowdsale: beneficiary is the zero address");
         require(weiAmount != 0, "Crowdsale: weiAmount is 0");
         require(weiAmount >= minPurchase, 'Have to send at least: minPurchase');
@@ -273,9 +281,29 @@ contract Presale is ReentrancyGuard, Context, Ownable {
         require((_weiRaised+weiAmount) < hardCap, 'Hard Cap reached');
         this; 
     }
-
+    
+    // Claim tokens
+    function claimTokens() public nonReentrant icoNotActive {
+        address beneficiary = msg.sender;
+        uint256 value = _contributions[msg.sender];
+        uint256 tokens = _getTokenAmount(value);
+        _preValidateClaim(beneficiary);
+        _processPurchase(beneficiary, tokens);
+    }
+    
+    function _preValidateClaim(address beneficiary) internal view {
+        uint256 value = _contributions[beneficiary];
+        require(startRefund == false);
+        require(Claimed[beneficiary] == false, 'Tokens already claimed!');
+        require(_TokensPurchased[beneficiary] == _getTokenAmount(value));
+        require(_AmountContribution[beneficiary] == _contributions[msg.sender]);
+        this;
+    }    
+ 
     function _deliverTokens(address beneficiary, uint256 tokenAmount) internal {
         _token.transfer(beneficiary, tokenAmount);
+        Claimed[beneficiary] = true;
+        emit Claim(msg.sender, tokenAmount);
     }
 
     function _processPurchase(address beneficiary, uint256 tokenAmount) internal {
@@ -283,17 +311,17 @@ contract Presale is ReentrancyGuard, Context, Ownable {
     }
 
     function _getTokenAmount(uint256 weiAmount) internal view returns (uint256) {
-        return weiAmount.mul(_rate).div(10**_tokenDecimals);
+        return weiAmount.mul(_rate).div(10**18);
     }
 
     function _forwardFunds() internal {
-        _wallet.transfer(msg.value);
+        _wallet.transfer(address(this).balance);
     }
     
      function withdraw() external onlyOwner icoNotActive{
          require(startRefund == false);
          require(address(this).balance > 0, 'Contract has no money');
-        _wallet.transfer(address(this).balance);    
+        _wallet.transfer(address(this).balance);
     }
     
     function checkContribution(address addr) public view returns(uint256){
@@ -340,7 +368,7 @@ contract Presale is ReentrancyGuard, Context, Ownable {
     }
     
     function refundMe() public icoNotActive{
-        require(startRefund == true, 'no refund available');
+        require(startRefund == true, 'No refund available');
         uint amount = _contributions[msg.sender];
 		if (address(this).balance >= amount) {
 			_contributions[msg.sender] = 0;
